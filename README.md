@@ -5,7 +5,7 @@ Handling the javascript fetch polyfill
 
 ## How to use
 
-- If you try to get data with same origin, you will just add your path only. Don't need to mention absolute path of your router.
+- If you try to get data with same origin, you will just add your path only. Not need to mention absolute path of your router.
 
   **Examples**
   
