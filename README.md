@@ -1,4 +1,4 @@
-# javascript-fetch-handler
+# Javascript fetch handler
 
 Handling the javascript fetch polyfill
 
