@@ -15,9 +15,19 @@ const typeOf = (obj) => {
     return map[toString.call(obj)];
 };
 
-const convertStringify = (data) => {
+const convertJsonToString = (data) => {
     if (typeOf(data) === "string") return data;
     return JSON.stringify(data);
+}
+
+const convertStringToJson = (data) => {
+    if (typeOf(data) !== "string") return null;
+
+    try {
+        return JSON.parse(data);
+    } catch (err) {
+        return null;
+    }
 }
 
 let origin = (window && window.location && window.location.origin) || '';
@@ -30,7 +40,7 @@ const defaultOptions = {
     }
 }
 
-const modifiedResponse = (response, json?: any) => {
+const modifiedResponse = (response, json) => {
 
     var modifiedObj = {
         success: response.ok,
@@ -43,7 +53,7 @@ const modifiedResponse = (response, json?: any) => {
         modifiedObj['isJsonParsingFailed'] = true;
     }
 
-    return convertStringify(modifiedObj);
+    return convertJsonToString(modifiedObj);
 
 }
 
@@ -72,48 +82,39 @@ const readResponseAsJSON = (response) => {
     });
 }
 
-const queryStringify = (url, key, value) => {
-
-    if (value) {
-        if (typeOf(value) === 'object' || typeOf(value) === 'array') {
-            url.searchParams.append(key, convertStringify(value))
-        } else {
-            url.searchParams.append(key, value)
-        }
+const queryStringify = (urlInstance, key, value) => {
+    if (typeOf(value) === 'object' || typeOf(value) === 'array') {
+        urlInstance.searchParams.append(key, convertJsonToString(value))
+    } else {
+        urlInstance.searchParams.append(key, value)
     }
-
 };
 
-const parseQueryParams = (url , key, value) => {
+const parseQueryParams = (urlInstance, key, value) => {
 
     if (typeOf(value) === 'array') {
 
       value.forEach(val => {
-        queryStringify(url, key, val)
+        queryStringify(urlInstance, key, val)
       });
 
     } else if (typeOf(value) === 'object') {
 
-      let subObj = value;
-
-      Object.keys(subObj).forEach((key) => {
-        queryStringify(url, key, subObj[key]);
+      Object.keys(value).forEach((key) => {
+        queryStringify(urlInstance, key, value[key]);
       });
 
     } else {
-      url.searchParams.append(key, value);
+        queryStringify(urlInstance, key, value);
     }
 
 };
 
-const parseAndUpdateQueryParams = (url, params) => {
-
-  Object
-    .keys(params)
-    .forEach(key => {
-      if (params[key]) {
-        parseQueryParams(url, key, params[key])
-      }
+const parseAndUpdateQueryParams = (urlInstance, params) => {
+    const keys = Object.keys(params || {});
+    
+    keys.forEach(key => {
+        parseQueryParams(urlInstance, key, params[key]);
     });
 }
 
@@ -122,7 +123,7 @@ const fetchRequest = (url, options) => {
   return new Promise((resolve, reject) => {
     fetch(url, options)
       .then(readResponseAsJSON)
-      .then((jsonStringify) => JSON.parse(jsonStringify))
+      .then((jsonStringify) => convertStringToJson(jsonStringify))
       .then(validateResponseData)
       .then((result) => resolve(result.data))
       .catch((error) => reject(error))
@@ -130,27 +131,27 @@ const fetchRequest = (url, options) => {
 
 }
 
-const request = (api = '/', params) => {
+const request = (url = '/', params) => {
 
   try {
 
     let body;
     
-    api = /^https?:\/\//.test(api) ? api : api;
+    url = /^https?:\/\//.test(url) ? url : `${origin}${url}`;
     
-    let url = new URL(origin + api);
+    const urlInstance = new URL(url);
 
     params = params || {};
 
-    const { method = defaultOptions.method, headers = defaultOptions.headers, ...data } = params;
+    const { method = defaultOptions.method, headers = defaultOptions.headers, ...restParams } = params;
 
     if ((['GET', 'DELETE'].indexOf(method) > -1)) {
-        parseAndUpdateQueryParams(url, data);
+        parseAndUpdateQueryParams(urlInstance, restParams);
     } else { // POST or PUT or PATCH 
-        body = convertStringify(data);
+        body = convertJsonToString(restParams);
     }
 
-    return fetchRequest(url.href, { method, headers, body });
+    return fetchRequest(urlInstance.href, { method, headers, body });
 
   } catch (err) {
     throw err;
